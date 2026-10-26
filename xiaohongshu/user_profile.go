@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/go-rod/rod"
+	"github.com/go-rod/rod/lib/input"
+	"github.com/sirupsen/logrus"
 	"github.com/xpzouying/xiaohongshu-mcp/humanize"
 )
 
@@ -150,7 +152,7 @@ func makeUserProfileURL(userID, xsecToken string, tab ProfileTab) string {
 
 func (u *UserProfileAction) GetMyProfileViaSidebar(ctx context.Context, tab ProfileTab, limit int) (*UserProfileResponse, error) {
 	// 重设被 .Context 清掉的 deadline；滚动加载按条数放宽
-	page := u.page.Context(ctx).Timeout(60*time.Second + time.Duration(limit)*time.Second/2)
+	page := u.page.Context(ctx).Timeout(60*time.Second + time.Duration(limit)*time.Second)
 
 	// 创建导航动作
 	navigate := NewNavigate(page)
@@ -181,18 +183,20 @@ func (u *UserProfileAction) GetMyProfileViaSidebar(ctx context.Context, tab Prof
 
 // scrollUntil 向下滚动主页，直到当前 tab 已加载 limit 条，或连续几次滚动都没有新内容。
 func scrollUntil(ctx context.Context, page *rod.Page, limit int) {
-	const maxIdle = 3
+	const maxIdle = 5
 	last, idle := countActiveTabNotes(page), 0
 	for last < limit && idle < maxIdle && ctx.Err() == nil {
-		for i := 0; i < 8; i++ {
-			if err := page.Mouse.Scroll(0, scrollNotchSize(), 1); err != nil {
-				return
-			}
-			time.Sleep(scrollNotchInterval())
+		// 懒加载只在接近底部时触发，而页面每次加载后都会变长，所以每轮直接跳到底部
+		if err := page.Keyboard.Press(input.End); err != nil {
+			return
 		}
+		time.Sleep(scrollNotchInterval())
+		// 再向上滚一格，模拟真人并重新触发滚动事件
+		_ = page.Mouse.Scroll(0, -scrollNotchSize(), 1)
 		time.Sleep(time.Duration(1500+rand.Intn(1000)) * time.Millisecond)
 
 		n := countActiveTabNotes(page)
+		logrus.Infof("主页滚动加载: %d/%d 条", n, limit)
 		if n > last {
 			last, idle = n, 0
 		} else {
