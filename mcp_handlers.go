@@ -724,10 +724,10 @@ func (s *AppServer) handleReplyComment(ctx context.Context, args map[string]inte
 }
 
 // handleGetMyProfile 获取当前登录用户主页
-func (s *AppServer) handleGetMyProfile(ctx context.Context, tab string) *MCPToolResult {
-	logrus.Infof("MCP: 获取我的主页 tab=%s", tab)
+func (s *AppServer) handleGetMyProfile(ctx context.Context, tab string, limit int) *MCPToolResult {
+	logrus.Infof("MCP: 获取我的主页 tab=%s limit=%d", tab, limit)
 
-	result, err := s.xiaohongshuService.GetMyProfile(ctx, tab)
+	result, err := s.xiaohongshuService.GetMyProfile(ctx, tab, limit)
 	if err != nil {
 		return &MCPToolResult{
 			Content: []MCPContent{{

@@ -325,7 +325,8 @@ func healthHandler(c *gin.Context) {
 // myProfileHandler 我的信息
 func (s *AppServer) myProfileHandler(c *gin.Context) {
 	// 获取当前登录用户信息
-	result, err := s.xiaohongshuService.GetMyProfile(c.Request.Context(), c.Query("tab"))
+	limit, _ := strconv.Atoi(c.Query("limit"))
+	result, err := s.xiaohongshuService.GetMyProfile(c.Request.Context(), c.Query("tab"), limit)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "GET_MY_PROFILE_FAILED",
 			"获取我的主页失败", err.Error())

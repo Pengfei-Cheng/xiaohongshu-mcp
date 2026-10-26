@@ -651,7 +651,7 @@ func withBrowserPage(fn func(*rod.Page) error) error {
 }
 
 // GetMyProfile 获取当前登录用户的个人信息
-func (s *XiaohongshuService) GetMyProfile(ctx context.Context, tab string) (*UserProfileResponse, error) {
+func (s *XiaohongshuService) GetMyProfile(ctx context.Context, tab string, limit int) (*UserProfileResponse, error) {
 	parsed, err := xiaohongshu.ParseProfileTab(tab)
 	if err != nil {
 		return nil, err
@@ -661,7 +661,7 @@ func (s *XiaohongshuService) GetMyProfile(ctx context.Context, tab string) (*Use
 
 	err = withBrowserPage(func(page *rod.Page) error {
 		action := xiaohongshu.NewUserProfileAction(page)
-		result, err = action.GetMyProfileViaSidebar(ctx, parsed)
+		result, err = action.GetMyProfileViaSidebar(ctx, parsed, limit)
 		return err
 	})
 

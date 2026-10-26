@@ -73,7 +73,8 @@ type UserProfileArgs struct {
 
 // MyProfileArgs 我的主页参数
 type MyProfileArgs struct {
-	Tab string `json:"tab,omitempty" jsonschema:"主页 tab: note(笔记,默认)|fav(收藏)|liked(点赞)"`
+	Tab   string `json:"tab,omitempty" jsonschema:"主页 tab: note(笔记,默认)|fav(收藏)|liked(点赞)"`
+	Limit int    `json:"limit,omitempty" jsonschema:"最多返回的笔记数。默认只取首屏(约20条)；更大时会向下滚动加载"`
 }
 
 // PostCommentArgs 发表评论的参数
@@ -479,7 +480,7 @@ func registerTools(server *mcp.Server, appServer *AppServer) {
 			},
 		},
 		withPanicRecovery("get_my_profile", func(ctx context.Context, req *mcp.CallToolRequest, args MyProfileArgs) (*mcp.CallToolResult, any, error) {
-			result := appServer.handleGetMyProfile(ctx, args.Tab)
+			result := appServer.handleGetMyProfile(ctx, args.Tab, args.Limit)
 			return convertToMCPResult(result), nil, nil
 		}),
 	)

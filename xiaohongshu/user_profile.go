@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"strings"
 	"time"
 
@@ -147,8 +148,9 @@ func makeUserProfileURL(userID, xsecToken string, tab ProfileTab) string {
 	return url
 }
 
-func (u *UserProfileAction) GetMyProfileViaSidebar(ctx context.Context, tab ProfileTab) (*UserProfileResponse, error) {
-	page := u.page.Context(ctx).Timeout(60 * time.Second) // 重设被 .Context 清掉的 deadline
+func (u *UserProfileAction) GetMyProfileViaSidebar(ctx context.Context, tab ProfileTab, limit int) (*UserProfileResponse, error) {
+	// 重设被 .Context 清掉的 deadline；滚动加载按条数放宽
+	page := u.page.Context(ctx).Timeout(60*time.Second + time.Duration(limit)*time.Second/2)
 
 	// 创建导航动作
 	navigate := NewNavigate(page)
@@ -165,7 +167,54 @@ func (u *UserProfileAction) GetMyProfileViaSidebar(ctx context.Context, tab Prof
 		return nil, err
 	}
 
-	return u.extractUserProfileData(page, tab)
+	scrollUntil(ctx, page, limit)
+
+	resp, err := u.extractUserProfileData(page, tab)
+	if err != nil {
+		return nil, err
+	}
+	if limit > 0 && len(resp.Feeds) > limit {
+		resp.Feeds = resp.Feeds[:limit]
+	}
+	return resp, nil
+}
+
+// scrollUntil 向下滚动主页，直到当前 tab 已加载 limit 条，或连续几次滚动都没有新内容。
+func scrollUntil(ctx context.Context, page *rod.Page, limit int) {
+	const maxIdle = 3
+	last, idle := countActiveTabNotes(page), 0
+	for last < limit && idle < maxIdle && ctx.Err() == nil {
+		for i := 0; i < 8; i++ {
+			if err := page.Mouse.Scroll(0, scrollNotchSize(), 1); err != nil {
+				return
+			}
+			time.Sleep(scrollNotchInterval())
+		}
+		time.Sleep(time.Duration(1500+rand.Intn(1000)) * time.Millisecond)
+
+		n := countActiveTabNotes(page)
+		if n > last {
+			last, idle = n, 0
+		} else {
+			idle++
+		}
+	}
+}
+
+// countActiveTabNotes 当前 tab 在 __INITIAL_STATE__ 里已加载的笔记数。
+func countActiveTabNotes(page *rod.Page) int {
+	res, err := page.Eval(`() => {
+		const u = window.__INITIAL_STATE__ && window.__INITIAL_STATE__.user;
+		if (!u || !u.notes) return 0;
+		const unwrap = (o) => (o && o.value !== undefined) ? o.value : (o && o._value);
+		const notes = unwrap(u.notes) || [];
+		const active = unwrap(u.activeTab) || {};
+		return (notes[active.index || 0] || []).length;
+	}`)
+	if err != nil {
+		return 0
+	}
+	return res.Value.Int()
 }
 
 // selectTab 切到目标子 tab。「笔记」是默认 tab，无需点击。
